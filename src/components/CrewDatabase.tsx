@@ -37,7 +37,7 @@ const DAVID_INDEX = COUNT - 1;      // 6
    DEPTH SYSTEM — evenly spaced translateZ, real perspective
    ═══════════════════════════════════════════════════════════════════ */
 
-const SPACING = 1000;               // px between characters (translateZ)
+const SPACING = 1500;               // px between characters (translateZ)
 const PERSPECTIVE = 1400;           // parent perspective px
 const CAMERA_TRAVEL = COUNT * SPACING; // 7000 — full camera travel
 
