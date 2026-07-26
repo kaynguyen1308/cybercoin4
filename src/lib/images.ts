@@ -31,16 +31,16 @@ export const IMAGES = {
     px(2825033, 'model-holding-neon-lights', 400),
   ],
 
-  // Crew Database — 8 classified files
+  // Crew Database — 8 classified files (custom artwork)
   crew: {
-    rebecca: px(2825033, 'model-holding-neon-lights', 900),
-    maine: px(6940320, 'neon-lights-behind-a-bald-man', 900),
-    kiwi: px(8108589, 'woman-leaning-on-a-wall', 900),
-    dorio: px(8107899, 'woman-wearing-sunglasses', 900),
-    pilar: px(8108429, 'man-in-black-t-shirt', 900),
-    david: px(36064312, 'futuristic-cyberpunk-portrait-in-vibrant-colors', 900),
-    lucy: px(8108553, 'woman-in-neon-light-at-the-party', 900),
-    smasher: px(31840611, 'futuristic-cyberpunk-woman-with-robotic-arm', 900),
+    rebecca: 'https://ik.imagekit.io/zznoau6lx/20554e356cc5d2aa70e5fc880535bf18.webp',
+    maine: 'https://ik.imagekit.io/zznoau6lx/d9d371de7501def548f18eb5349bebbb.webp',
+    kiwi: 'https://ik.imagekit.io/zznoau6lx/fd4f1562a41cf38f05527f8e62d63fde.webp',
+    dorio: 'https://ik.imagekit.io/zznoau6lx/5ea2fd030cf5b1673fe02b9ab11af75f.webp',
+    pilar: 'https://ik.imagekit.io/zznoau6lx/cosplaying-as-pilar-v0-og7cwrxlec1e1.webp',
+    david: 'https://ik.imagekit.io/zznoau6lx/291ba69a5fb3d4ea78744d1b5196dff5.webp',
+    lucy: 'https://ik.imagekit.io/zznoau6lx/will-lucy-appear-cyberpunk-edgerunners-2-v0-q6krc34tz9bf1.webp',
+    smasher: 'https://ik.imagekit.io/zznoau6lx/Adam-Smasher-2077-1024x576.webp',
   },
 
   roadmapBg: px(10591995, 'street-in-city-at-night-after-rain', 1600),
