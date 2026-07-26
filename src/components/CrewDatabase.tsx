@@ -129,54 +129,54 @@ function CrewScene({
   textRefs: (els: (HTMLParagraphElement | HTMLHeadingElement | null)[]) => void;
 }) {
   const isFinal = member.side === 'center';
-  const isLeft = member.side === 'left';
 
-  // The scene itself centers the composition; translateZ still drives depth.
   const sceneStyle: React.CSSProperties = {
     position: 'absolute',
     top: 0,
     left: 0,
     width: '100%',
     height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     transformStyle: 'preserve-3d',
     transform: `translateZ(${member.z}px)`,
     pointerEvents: 'none',
   };
 
-  // ONE composition: portrait + text in a single flex container that moves
-  // as one object in 3D space. Left → portrait, gap, text. Right → text, gap,
-  // portrait. Center → stacked column. Gap stays constant while scrolling.
-  const composeStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: isFinal ? 'column' : isLeft ? 'row' : 'row-reverse',
-    gap: isFinal ? 'clamp(20px, 3vw, 32px)' : 'clamp(24px, 4.5vw, 56px)',
-  };
-
-  const portraitWidth = isFinal ? 'min(520px, 50vw)' : 'min(340px, 42vw)';
-  const textWidth = 'min(330px, 42vw)';
+  // Image placement per side
+  const imgWrapStyle: React.CSSProperties = isFinal
+    ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px,54vw)' }
+    : member.side === 'left'
+    ? { left: '5vw', width: 'min(420px,38vw)' }
+    : { right: '5vw', width: 'min(420px,38vw)' };
 
   const textAlign = isFinal
     ? 'items-center text-center'
-    : isLeft
+    : member.side === 'left'
     ? 'items-start text-left'
     : 'items-end text-right';
 
+  const textOffset = isFinal
+    ? ''
+    : member.side === 'left'
+    ? 'ml-auto pr-12'
+    : 'mr-auto pl-12';
+
   return (
     <div ref={sceneRef} style={sceneStyle}>
-      {/* ── ONE COMPOSITION: portrait + text move together in 3D ── */}
-      <div style={composeStyle}>
-        {/* PORTRAIT */}
+      {/* ── IMAGE ── */}
+      <div
+        className="absolute flex items-center"
+        style={{
+          top: '50%',
+          transform: 'translateY(-50%)',
+          ...imgWrapStyle,
+        }}
+      >
         <div
           style={{
-            width: portraitWidth,
+            width: '100%',
             aspectRatio: '3 / 4',
             position: 'relative',
             overflow: 'hidden',
-            flexShrink: 0,
           }}
         >
           <img
@@ -187,12 +187,11 @@ function CrewScene({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/70 via-transparent to-[#050507]/20" />
         </div>
+      </div>
 
-        {/* TEXT — beside its portrait, never near the viewport edge */}
-        <div
-          className={`flex flex-col ${textAlign}`}
-          style={{ width: textWidth, flexShrink: 0 }}
-        >
+      {/* ── TEXT ── */}
+      <div className="absolute inset-0 flex items-center px-12">
+        <div className={`flex flex-col ${textAlign} ${textOffset} max-w-sm`}>
           <p
             ref={(el) => textRefs([el, null, null, null])}
             className="font-mono text-[11px] tracking-[0.42em] text-gray-500"
