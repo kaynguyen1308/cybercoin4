@@ -173,7 +173,12 @@ function CrewScene({ member, index, refs }: { member: CrewMember; index: number;
   return (
     <div ref={refs.scene} style={sceneStyle}>
       {isFinal ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 md:gap-12">
+  <div
+    className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 md:gap-12"
+    style={{
+      transform: "translateY(-70px)",
+    }}
+  >
           <div style={{ width: 'min(560px,54vw)' }}>{portrait}</div>
           {textBlock}
         </div>
