@@ -24,7 +24,7 @@ const CREW: CrewMember[] = [
     quote: "I don't do second chances.",
     img: IMAGES.crew.rebecca,
     side: 'left',
-    z: -800,
+    z: -35000,
   },
   {
     file: 'FILE 02',
@@ -33,7 +33,7 @@ const CREW: CrewMember[] = [
     quote: "The streets don't forget. Neither do I.",
     img: IMAGES.crew.maine,
     side: 'right',
-    z: -2200,
+    z: -30000,
   },
   {
     file: 'FILE 03',
@@ -42,7 +42,7 @@ const CREW: CrewMember[] = [
     quote: 'Every secret has a price. I collect.',
     img: IMAGES.crew.kiwi,
     side: 'left',
-    z: -3600,
+    z: -25000,
   },
   {
     file: 'FILE 04',
@@ -51,7 +51,7 @@ const CREW: CrewMember[] = [
     quote: 'Loyalty is the only currency I trust.',
     img: IMAGES.crew.dorio,
     side: 'right',
-    z: -5000,
+    z: -20000,
   },
   {
     file: 'FILE 05',
@@ -60,7 +60,7 @@ const CREW: CrewMember[] = [
     quote: 'Talk big. Hit harder.',
     img: IMAGES.crew.pilar,
     side: 'left',
-    z: -6400,
+    z: -15000,
   },
   {
     file: 'FILE 06',
@@ -69,7 +69,7 @@ const CREW: CrewMember[] = [
     quote: "I'm not trying to be a legend. I'm trying to stay alive.",
     img: IMAGES.crew.david,
     side: 'right',
-    z: -7800,
+    z: -10000,
   },
   {
     file: 'FILE 07',
@@ -78,12 +78,22 @@ const CREW: CrewMember[] = [
     quote: "I'll take you to the moon. If you're ready to fall.",
     img: IMAGES.crew.lucy,
     side: 'left',
-    z: -9200,
+    z: -5000,
+  },
+  {
+    file: 'FILE 08',
+    codename: 'THE FINAL BOSS',
+    name: 'Adam Smasher',
+    quote: "Legends die. I don't.",
+    img: IMAGES.crew.smasher,
+    side: 'center',
+    z: -1000,
   },
 ];
 
-const TOTAL_DEPTH = 9600; // scrollProgress × this drives every character forward
+const TOTAL_DEPTH = 35000; // scrollProgress × this drives every character forward
 const REVEAL_THRESHOLD = -500; // text reveals once currentZ passes this
+const SMASHER_INDEX = CREW.findIndex((c) => c.name === 'Adam Smasher');
 
 /* ─── section header (static) ─── */
 function SectionHeader() {
@@ -220,7 +230,7 @@ function CrewScene({
 
       {/* File index marker */}
       <span className="pointer-events-none absolute bottom-7 right-6 font-mono text-[10px] tracking-[0.32em] text-gray-700">
-        {String(index + 1).padStart(2, '0')} / {String(CREW.length).padStart(2, '0')}
+        {String(index + 1).padStart(2, '0')} / 08
       </span>
     </div>
   );
@@ -232,6 +242,8 @@ export default function CrewDatabase() {
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const bgRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textRefs = useRef<(HTMLParagraphElement | HTMLHeadingElement | null)[][]>([]);
+  const smasherOverlayRef = useRef<HTMLDivElement | null>(null);
+  const glitchRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -240,8 +252,12 @@ export default function CrewDatabase() {
     const scenes = sceneRefs.current;
     const bgs = bgRefs.current;
     const texts = textRefs.current;
+    const smasherOverlay = smasherOverlayRef.current;
+    const glitch = glitchRef.current;
+
     // Track which characters have had their text revealed (for reset-on-backward)
     const revealedFlags = CREW.map(() => false);
+    let smasherGlitched = false;
 
     // Sequential reveal helper — reveals FILE → Codename → Name → Quote
     const revealText = (memberIndex: number, progress: number) => {
@@ -267,6 +283,17 @@ export default function CrewDatabase() {
         el.style.transform = 'translateY(14px)';
       });
       revealedFlags[memberIndex] = false;
+    };
+
+    // One-shot RGB split glitch for Adam Smasher
+    const playSmasherGlitch = () => {
+      if (smasherGlitched || !glitch) return;
+      smasherGlitched = true;
+      const tl = gsap.timeline();
+      tl.set(glitch, { opacity: 1 });
+      tl.to(glitch, { opacity: 0.85, duration: 0.04 }, 0);
+      tl.to(glitch, { opacity: 0, duration: 0.12, ease: 'power2.out' }, 0.08);
+      // total ~200ms
     };
 
     const trigger = ScrollTrigger.create({
@@ -322,6 +349,19 @@ export default function CrewDatabase() {
           }
         }
 
+        // ── Adam Smasher: red overlay + one-shot glitch when active ──
+        if (smasherOverlay) {
+          const smasherScene = scenes[SMASHER_INDEX];
+          const smasherOpacity = smasherScene
+            ? parseFloat(smasherScene.style.opacity || '0')
+            : 0;
+          smasherOverlay.style.opacity = String(smasherOpacity * 0.5);
+        }
+        // trigger glitch once when Smasher is near camera
+        const smasherZ = CREW[SMASHER_INDEX].z + scrollProgress * TOTAL_DEPTH;
+        if (!smasherGlitched && smasherZ >= -800 && smasherZ <= 800) {
+          playSmasherGlitch();
+        }
       },
     });
 
@@ -335,7 +375,7 @@ export default function CrewDatabase() {
       <SectionHeader />
 
       {/* Parent container — ~2000vh tall to provide scroll space */}
-      <div style={{ height: '1250vh', position: 'relative' }}>
+      <div style={{ height: '2000vh', position: 'relative' }}>
         {/* Fixed fullscreen viewport — stays pinned while scrolling this section */}
         <div
           style={{
@@ -375,7 +415,7 @@ export default function CrewDatabase() {
           <div
             className="absolute inset-0"
             style={{
-              perspective: '900px',
+              perspective: '1400px',
               transformStyle: 'preserve-3d',
               overflow: 'visible',
               zIndex: 1,
@@ -396,6 +436,32 @@ export default function CrewDatabase() {
               />
             ))}
           </div>
+
+          {/* Adam Smasher dark red overlay (controlled by motion engine) */}
+          <div
+            ref={smasherOverlayRef}
+            className="pointer-events-none absolute inset-0"
+            style={{
+              zIndex: 2,
+              opacity: 0,
+              background:
+                'radial-gradient(ellipse at center, rgba(139,0,0,0.55) 0%, rgba(80,0,0,0.35) 45%, rgba(20,0,0,0.6) 100%)',
+              mixBlendMode: 'multiply',
+            }}
+          />
+
+          {/* One-shot RGB split glitch layer for Adam Smasher */}
+          <div
+            ref={glitchRef}
+            className="pointer-events-none absolute inset-0"
+            style={{
+              zIndex: 3,
+              opacity: 0,
+              background:
+                'linear-gradient(90deg, rgba(255,0,0,0.35) 0%, rgba(0,255,255,0.35) 50%, rgba(255,0,255,0.35) 100%)',
+              mixBlendMode: 'screen',
+            }}
+          />
         </div>
       </div>
 
