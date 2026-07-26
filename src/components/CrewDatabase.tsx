@@ -37,12 +37,12 @@ const DAVID_INDEX = COUNT - 1;      // 6
    DEPTH SYSTEM — evenly spaced translateZ, real perspective
    ═══════════════════════════════════════════════════════════════════ */
 
-const SPACING = 1000;               // px between characters (translateZ)
+const SPACING = 1500;               // px between characters (translateZ)
 const PERSPECTIVE = 1000;           // parent perspective px
 const CAMERA_TRAVEL = COUNT * SPACING; // 7000 — full camera travel
 
 // Visibility windows measured in rendered-z (px from camera)
-const FADE_IN = 1500;                // begins fading in this far before camera
+const FADE_IN = 1000;                // begins fading in this far before camera
 const HOLD = 120;                   // fully visible band around camera
 const FADE_OUT = 700;               // fades out this far past camera
 const REVEAL_START = 500;           // text begins revealing this far before camera
