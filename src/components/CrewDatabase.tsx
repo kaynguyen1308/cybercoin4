@@ -44,7 +44,7 @@ const CAMERA_TRAVEL = COUNT * SPACING; // 7000 — full camera travel
 // Visibility windows measured in rendered-z (px from camera)
 const FADE_IN = 1000;                // begins fading in this far before camera
 const HOLD = 200;                   // fully visible band around camera
-const FADE_OUT = 700;               // fades out this far past camera
+const FADE_OUT = 1400;               // fades out this far past camera
 const REVEAL_START = 500;           // text begins revealing this far before camera
 
 // Scroll progress mapping
