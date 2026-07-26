@@ -122,17 +122,10 @@ function CrewScene({ member, index, refs }: { member: CrewMember; index: number;
         width: '100%',
         aspectRatio: '3 / 4',
         position: 'relative',
-        overflow: 'hidden',
         flexShrink: 0,
       }}
     >
-      <img
-        src={member.img}
-        alt={member.name}
-        className="h-full w-full object-cover object-top"
-        loading="lazy"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/70 via-transparent to-[#050507]/20" />
+      <CyberFrame member={member} />
     </div>
   );
 
@@ -350,5 +343,294 @@ export default function CrewDatabase() {
         </p>
       </div>
     </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CYBER FRAME — cyberpunk data-chip portrait frame (HTML + Tailwind only)
+   Keeps the image at exactly the same size/position; only adds the shell.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function CyberFrame({ member }: { member: CrewMember }) {
+  return (
+    <div className="relative h-full w-full">
+      {/* Thick dark metallic outer shell with bevel */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(145deg, #23262b 0%, #0a0b0d 38%, #15171b 62%, #050608 100%)',
+          boxShadow:
+            'inset 0 0 0 1px rgba(0,240,255,0.18), inset 0 0 0 2px rgba(0,0,0,0.7), inset 0 2px 6px rgba(255,255,255,0.06), inset 0 -3px 10px rgba(0,0,0,0.9), 0 0 0 1px #000, 0 22px 50px rgba(0,0,0,0.85), 0 0 40px rgba(0,240,255,0.12)',
+          clipPath:
+            'polygon(0 14px, 14px 0, calc(100% - 28px) 0, 100% 28px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 28px 100%, 0 calc(100% - 28px))',
+        }}
+      >
+        {/* Inner layered border — metallic mid plate */}
+        <div
+          className="absolute"
+          style={{
+            inset: '8px',
+            background: 'linear-gradient(150deg, #14161a, #070809)',
+            boxShadow:
+              'inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 0 0 2px rgba(0,0,0,0.6), inset 0 0 22px rgba(0,0,0,0.85)',
+            clipPath:
+              'polygon(0 10px, 10px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 22px 100%, 0 calc(100% - 22px))',
+          }}
+        >
+          {/* Image well */}
+          <div
+            className="absolute overflow-hidden"
+            style={{
+              inset: '12px',
+              boxShadow:
+                'inset 0 0 0 1px rgba(0,240,255,0.25), inset 0 0 0 2px rgba(0,0,0,0.8), inset 0 0 30px rgba(0,0,0,0.9)',
+              clipPath:
+                'polygon(0 8px, 8px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 18px 100%, 0 calc(100% - 18px))',
+            }}
+          >
+            <img
+              src={member.img}
+              alt={member.name}
+              className="h-full w-full object-cover object-top"
+              loading="lazy"
+            />
+            {/* Color grade + glass reflection */}
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(5,5,7,0.15) 0%, transparent 22%, transparent 62%, rgba(5,5,7,0.72) 100%)',
+              }}
+            />
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 16%, transparent 30%, transparent 100%)',
+                mixBlendMode: 'screen',
+              }}
+            />
+            {/* Diagonal holographic sheen */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-40"
+              style={{
+                background:
+                  'repeating-linear-gradient(115deg, transparent 0px, transparent 5px, rgba(0,240,255,0.04) 5px, rgba(0,240,255,0.04) 6px)',
+                mixBlendMode: 'screen',
+              }}
+            />
+            {/* Scanline overlay */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-25"
+              style={{
+                background:
+                  'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.35) 2px, rgba(0,0,0,0.35) 3px)',
+              }}
+            />
+          </div>
+
+          {/* Thin magenta electronic traces */}
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: '4px',
+              top: '4px',
+              right: '4px',
+              bottom: '4px',
+              background:
+                'linear-gradient(90deg, transparent 0%, transparent 14%, rgba(255,0,200,0.5) 14%, rgba(255,0,200,0.5) 15%, transparent 15%, transparent 86%, rgba(255,0,200,0.5) 86%, rgba(255,0,200,0.5) 87%, transparent 87%)',
+              mixBlendMode: 'screen',
+              opacity: 0.6,
+            }}
+          />
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: '14%',
+              top: '4px',
+              width: '1px',
+              bottom: '4px',
+              background:
+                'linear-gradient(180deg, transparent, rgba(255,0,200,0.4), transparent)',
+              mixBlendMode: 'screen',
+            }}
+          />
+
+          {/* Cyan glowing corner brackets */}
+          <CornerBracket position="top-left" />
+          <CornerBracket position="top-right" />
+          <CornerBracket position="bottom-left" />
+          <CornerBracket position="bottom-right" />
+
+          {/* Top scan label bar */}
+          <div
+            className="absolute left-3 right-3 flex items-center justify-between font-mono"
+            style={{ top: '14px', fontSize: '7px', letterSpacing: '0.18em' }}
+          >
+            <span style={{ color: 'rgba(0,240,255,0.85)' }}>FILE VERIFIED</span>
+            <span style={{ color: 'rgba(255,230,0,0.85)' }}>NC-2077</span>
+          </div>
+
+          {/* Bottom scan label bar */}
+          <div
+            className="absolute left-3 right-3 flex items-center justify-between font-mono"
+            style={{ bottom: '14px', fontSize: '7px', letterSpacing: '0.18em' }}
+          >
+            <span style={{ color: 'rgba(255,230,0,0.85)' }}>CREW DATA</span>
+            <span style={{ color: 'rgba(0,240,255,0.7)' }}>{member.file}</span>
+          </div>
+
+          {/* Side micro text */}
+          <div
+            className="absolute font-mono"
+            style={{
+              left: '5px',
+              top: '50%',
+              transform: 'translateY(-50%) rotate(-90deg)',
+              transformOrigin: 'left center',
+              fontSize: '6px',
+              letterSpacing: '0.3em',
+              color: 'rgba(255,230,0,0.55)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            NET-77//CHROME-2.1
+          </div>
+          <div
+            className="absolute font-mono"
+            style={{
+              right: '5px',
+              top: '50%',
+              transform: 'translateY(-50%) rotate(90deg)',
+              transformOrigin: 'right center',
+              fontSize: '6px',
+              letterSpacing: '0.3em',
+              color: 'rgba(0,240,255,0.55)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ID:{member.file.replace(/\s/g, '')}
+          </div>
+
+          {/* Bolts / screws */}
+          <Bolt style={{ top: '10px', left: '10px' }} />
+          <Bolt style={{ top: '10px', right: '10px' }} />
+          <Bolt style={{ bottom: '10px', left: '10px' }} />
+          <Bolt style={{ bottom: '10px', right: '10px' }} />
+
+          {/* Indicator LEDs */}
+          <div
+            className="absolute"
+            style={{
+              top: '26px',
+              left: '14px',
+              width: '5px',
+              height: '5px',
+              borderRadius: '9999px',
+              background: '#00f0ff',
+              boxShadow: '0 0 6px #00f0ff, 0 0 12px rgba(0,240,255,0.6)',
+            }}
+          />
+          <div
+            className="absolute"
+            style={{
+              top: '26px',
+              right: '14px',
+              width: '5px',
+              height: '5px',
+              borderRadius: '9999px',
+              background: '#ffe600',
+              boxShadow: '0 0 6px #ffe600, 0 0 12px rgba(255,230,0,0.5)',
+            }}
+          />
+          <div
+            className="absolute"
+            style={{
+              bottom: '26px',
+              left: '14px',
+              width: '5px',
+              height: '5px',
+              borderRadius: '9999px',
+              background: '#ff2d2d',
+              boxShadow: '0 0 6px #ff2d2d, 0 0 12px rgba(255,45,45,0.5)',
+            }}
+          />
+
+          {/* Yellow industrial warning stripe — bottom edge */}
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: '24px',
+              right: '24px',
+              bottom: '4px',
+              height: '3px',
+              background:
+                'repeating-linear-gradient(45deg, #ffe600 0px, #ffe600 4px, #0a0b0d 4px, #0a0b0d 8px)',
+              opacity: 0.7,
+            }}
+          />
+          {/* Yellow warning stripe — top edge */}
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: '24px',
+              right: '24px',
+              top: '4px',
+              height: '2px',
+              background:
+                'repeating-linear-gradient(45deg, rgba(255,230,0,0.6) 0px, rgba(255,230,0,0.6) 3px, transparent 3px, transparent 6px)',
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CornerBracket({ position }: { position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' }) {
+  const base = 'absolute h-4 w-4';
+  const map: Record<string, string> = {
+    'top-left': 'left-2 top-2',
+    'top-right': 'right-2 top-2',
+    'bottom-left': 'left-2 bottom-2',
+    'bottom-right': 'right-2 bottom-2',
+  };
+  const borderMap: Record<string, string> = {
+    'top-left': 'border-l-2 border-t-2',
+    'top-right': 'border-r-2 border-t-2',
+    'bottom-left': 'border-l-2 border-b-2',
+    'bottom-right': 'border-r-2 border-b-2',
+  };
+  return (
+    <div
+      className={`${base} ${map[position]} ${borderMap[position]}`}
+      style={{ borderColor: '#00f0ff', boxShadow: '0 0 6px rgba(0,240,255,0.7)' }}
+    />
+  );
+}
+
+function Bolt({ style }: { style: CSSProperties }) {
+  return (
+    <div
+      className="absolute flex items-center justify-center"
+      style={{
+        width: '7px',
+        height: '7px',
+        borderRadius: '9999px',
+        background: 'radial-gradient(circle at 35% 35%, #5a5e66, #15171b 70%, #050608)',
+        boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9)',
+        ...style,
+      }}
+    >
+      <div
+        style={{
+          width: '3px',
+          height: '1px',
+          background: 'rgba(0,0,0,0.85)',
+          transform: 'rotate(45deg)',
+        }}
+      />
+    </div>
   );
 }
