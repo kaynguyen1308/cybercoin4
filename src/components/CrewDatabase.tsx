@@ -231,6 +231,51 @@ function useCrewEngine(
     const scenes = sceneRefs.current;
     const bgs = bgRefs.current;
     const texts = textRefs.current;
+    if (!scenes || !bgs || !texts) return;
+
+    // ── Cinematic camera inertia (LERP) ──────────────────────────────
+    // The raw scroll progress maps to a *target* camera position. Each
+    // frame we ease the *current* camera toward that target with a fixed
+    // smoothing factor. This decouples translateZ/opacity/text reveal
+    // from the instantaneous scroll position so the camera glides with
+    // heavy inertia — it keeps moving a few px after scrolling stops —
+    // without overshoot, bounce, or spring. No React re-renders happen
+    // during scrolling; everything mutates DOM transforms/opacity only.
+    let targetCameraOffset = 0;
+    let currentCameraOffset = 0;
+    const CAMERA_SMOOTHING = 0.08; // lower = heavier / more inertial
+
+    const applyCamera = () => {
+      // Ease current toward target. Clamp tiny residuals so the camera
+      // fully settles — prevents perpetual sub-pixel work after a stop.
+      currentCameraOffset += (targetCameraOffset - currentCameraOffset) * CAMERA_SMOOTHING;
+      if (Math.abs(currentCameraOffset - targetCameraOffset) < 0.01) {
+        currentCameraOffset = targetCameraOffset;
+      }
+
+      for (let i = 0; i < COUNT; i++) {
+        const scene = scenes[i];
+        if (!scene) continue;
+
+        const z = -(i + 1) * SPACING + currentCameraOffset;
+        const op = depthOpacity(z);
+
+        // Only transform + opacity — no layout recalculation.
+        scene.style.transform = `translateZ(${z}px)`;
+        scene.style.opacity = String(op);
+
+        const bg = bgs[i];
+        if (bg) bg.style.opacity = String(op * 0.55);
+
+        if (i === DAVID_INDEX) {
+          // David reveals only during the dwell (after reaching camera).
+          revealText(texts[i] ?? [], (targetCameraOffset - CAMERA_TRAVEL) / DAVID_DWELL);
+        } else {
+          // Others reveal as they approach the camera.
+          revealText(texts[i] ?? [], (z + REVEAL_START) / REVEAL_START);
+        }
+      }
+    };
 
     const trigger = ScrollTrigger.create({
       trigger: section,
@@ -240,35 +285,28 @@ function useCrewEngine(
       onUpdate: (self) => {
         const p = self.progress;
         // Camera reaches David at P_CAMERA, then holds for David's dwell.
-        const offset = p < P_CAMERA ? (p / P_CAMERA) * CAMERA_TRAVEL : CAMERA_TRAVEL;
-
-        for (let i = 0; i < COUNT; i++) {
-          const scene = scenes[i];
-          if (!scene) continue;
-
-          const z = -(i + 1) * SPACING + offset;
-          const op = depthOpacity(z);
-
-          // Only transform + opacity — no layout recalculation.
-          scene.style.transform = `translateZ(${z}px)`;
-          scene.style.opacity = String(op);
-
-          const bg = bgs[i];
-          if (bg) bg.style.opacity = String(op * 0.55);
-
-          if (i === DAVID_INDEX) {
-            // David reveals only during the dwell (after reaching camera).
-            revealText(texts[i] ?? [], (p - P_CAMERA) / DAVID_DWELL);
-          } else {
-            // Others reveal as they approach the camera.
-            revealText(texts[i] ?? [], (z + REVEAL_START) / REVEAL_START);
-          }
-        }
+        targetCameraOffset = p < P_CAMERA ? (p / P_CAMERA) * CAMERA_TRAVEL : CAMERA_TRAVEL;
+        applyCamera();
       },
     });
 
+    // Continuous rAF tick so the camera keeps gliding toward the target
+    // even between ScrollTrigger updates (e.g. while Lenis momentum tails off).
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      if (now - last < 16) return; // throttle to ~60fps
+      last = now;
+      if (currentCameraOffset !== targetCameraOffset) {
+        applyCamera();
+      }
+    };
+    raf = requestAnimationFrame(loop);
+
     return () => {
       trigger.kill();
+      cancelAnimationFrame(raf);
     };
   }, [sectionRef, sceneRefs, bgRefs, textRefs]);
 }

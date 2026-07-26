@@ -15,10 +15,12 @@ import HowToBuy from './components/HowToBuy';
 import FAQ from './components/FAQ';
 import Footer from './components/Footer';
 import { useScrollReveal } from './lib/useScrollReveal';
+import { useLenis } from './lib/useLenis';
 import { HeroTimelineProvider } from './lib/heroTimeline';
 
 export default function App() {
   useScrollReveal();
+  useLenis();
 
   return (
     <HeroTimelineProvider>
