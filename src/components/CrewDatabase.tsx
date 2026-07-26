@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { IMAGES } from '@/lib/images';
@@ -12,10 +12,13 @@ type CrewMember = {
   name: string;
   quote: string;
   img: string;
-  side: 'left' | 'right' | 'center';
+  side: 'left' | 'right';
   z: number; // initial translateZ depth (px)
 };
 
+// Rebecca opens the exhibition (closest to camera, arrives first);
+// Lucy closes it (deepest, arrives last). Even 1600px spacing so the
+// fade windows crossfade slightly — no dead space between characters.
 const CREW: CrewMember[] = [
   {
     file: 'FILE 01',
@@ -24,7 +27,7 @@ const CREW: CrewMember[] = [
     quote: "I don't do second chances.",
     img: IMAGES.crew.rebecca,
     side: 'left',
-    z: -35000,
+    z: -1200,
   },
   {
     file: 'FILE 02',
@@ -33,7 +36,7 @@ const CREW: CrewMember[] = [
     quote: "The streets don't forget. Neither do I.",
     img: IMAGES.crew.maine,
     side: 'right',
-    z: -30000,
+    z: -2800,
   },
   {
     file: 'FILE 03',
@@ -42,7 +45,7 @@ const CREW: CrewMember[] = [
     quote: 'Every secret has a price. I collect.',
     img: IMAGES.crew.kiwi,
     side: 'left',
-    z: -25000,
+    z: -4400,
   },
   {
     file: 'FILE 04',
@@ -51,7 +54,7 @@ const CREW: CrewMember[] = [
     quote: 'Loyalty is the only currency I trust.',
     img: IMAGES.crew.dorio,
     side: 'right',
-    z: -20000,
+    z: -6000,
   },
   {
     file: 'FILE 05',
@@ -60,7 +63,7 @@ const CREW: CrewMember[] = [
     quote: 'Talk big. Hit harder.',
     img: IMAGES.crew.pilar,
     side: 'left',
-    z: -15000,
+    z: -7600,
   },
   {
     file: 'FILE 06',
@@ -69,7 +72,7 @@ const CREW: CrewMember[] = [
     quote: "I'm not trying to be a legend. I'm trying to stay alive.",
     img: IMAGES.crew.david,
     side: 'right',
-    z: -10000,
+    z: -9200,
   },
   {
     file: 'FILE 07',
@@ -78,22 +81,35 @@ const CREW: CrewMember[] = [
     quote: "I'll take you to the moon. If you're ready to fall.",
     img: IMAGES.crew.lucy,
     side: 'left',
-    z: -5000,
-  },
-  {
-    file: 'FILE 08',
-    codename: 'THE FINAL BOSS',
-    name: 'Adam Smasher',
-    quote: "Legends die. I don't.",
-    img: IMAGES.crew.smasher,
-    side: 'center',
-    z: -1000,
+    z: -10800,
   },
 ];
 
-const TOTAL_DEPTH = 35000; // scrollProgress × this drives every character forward
-const REVEAL_THRESHOLD = -500; // text reveals once currentZ passes this
-const SMASHER_INDEX = CREW.findIndex((c) => c.name === 'Adam Smasher');
+// Scroll progress 0→1 is multiplied by TOTAL_DEPTH and added to every
+// character's initial z, driving the whole cast forward through the camera.
+const TOTAL_DEPTH = 12000;
+
+// Text reveals once a character is close to the camera, finishing as it
+// passes — so the codename/name/quote are readable right at the focal moment.
+const REVEAL_THRESHOLD = -700; // z at which FILE begins to appear
+const REVEAL_WINDOW = 1100; // z-range over which the four lines stagger in
+
+// Opacity curve — quick fade-in, a tight full-opacity plateau near the
+// camera, then a natural fade-out that completes well before the perspective
+// plane (so characters never invert or blow up as they pass the viewer).
+const FADE_NEAR = 1000; // fade-in begins at z = -FADE_NEAR
+const PLATEAU = 200; // full opacity while |z| <= PLATEAU
+const FADE_FAR = 700; // fade-out completes at z = +FADE_FAR (kept < perspective)
+
+const depthOpacity = (z: number): number => {
+  if (z <= -FADE_NEAR) return 0;
+  if (z < -PLATEAU) return (z + FADE_NEAR) / (FADE_NEAR - PLATEAU);
+  if (z <= PLATEAU) return 1;
+  if (z < FADE_FAR) return 1 - (z - PLATEAU) / (FADE_FAR - PLATEAU);
+  return 0;
+};
+
+const easePower3Out = (t: number) => 1 - Math.pow(1 - gsap.utils.clamp(0, 1, t), 3);
 
 /* ─── section header (static) ─── */
 function SectionHeader() {
@@ -128,9 +144,9 @@ function CrewScene({
   sceneRef: (el: HTMLDivElement | null) => void;
   textRefs: (els: (HTMLParagraphElement | HTMLHeadingElement | null)[]) => void;
 }) {
-  const isFinal = member.side === 'center';
+  const isLeft = member.side === 'left';
 
-  const sceneStyle: React.CSSProperties = {
+  const sceneStyle: CSSProperties = {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -138,60 +154,56 @@ function CrewScene({
     height: '100%',
     transformStyle: 'preserve-3d',
     transform: `translateZ(${member.z}px)`,
+    opacity: 0,
     pointerEvents: 'none',
   };
 
-  // Image placement per side
-  const imgWrapStyle: React.CSSProperties = isFinal
-    ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px,54vw)' }
-    : member.side === 'left'
-    ? { left: '5vw', width: 'min(420px,38vw)' }
-    : { right: '5vw', width: 'min(420px,38vw)' };
+  // Portrait + text belong to the same visual composition: a single
+  // centered flex row so the text always sits beside its own portrait
+  // (40–60px gap) and never drifts toward the screen edges.
+  const composeStyle: CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 'min(900px, 92vw)',
+    display: 'flex',
+    alignItems: 'center',
+    flexDirection: isLeft ? 'row' : 'row-reverse',
+    gap: 'clamp(40px, 4.5vw, 56px)',
+  };
 
-  const textAlign = isFinal
-    ? 'items-center text-center'
-    : member.side === 'left'
-    ? 'items-start text-left'
-    : 'items-end text-right';
+  const portraitStyle: CSSProperties = {
+    width: 'clamp(180px, 32vw, 380px)',
+    aspectRatio: '3 / 4',
+    position: 'relative',
+    overflow: 'hidden',
+    flexShrink: 0,
+  };
 
-  const textOffset = isFinal
-    ? ''
-    : member.side === 'left'
-    ? 'ml-auto pr-12'
-    : 'mr-auto pl-12';
+  const textBlockStyle: CSSProperties = {
+    maxWidth: 'clamp(200px, 38vw, 360px)',
+  };
 
   return (
     <div ref={sceneRef} style={sceneStyle}>
-      {/* ── IMAGE ── */}
-      <div
-        className="absolute flex items-center"
-        style={{
-          top: '50%',
-          transform: 'translateY(-50%)',
-          ...imgWrapStyle,
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            aspectRatio: '3 / 4',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+      <div style={composeStyle}>
+        {/* ── PORTRAIT ── */}
+        <div style={portraitStyle}>
           <img
             src={member.img}
             alt={member.name}
             className="h-full w-full object-cover object-top"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/70 via-transparent to-[#050507]/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/60 via-transparent to-[#050507]/15" />
         </div>
-      </div>
 
-      {/* ── TEXT ── */}
-      <div className="absolute inset-0 flex items-center px-12">
-        <div className={`flex flex-col ${textAlign} ${textOffset} max-w-sm`}>
+        {/* ── TEXT (beside portrait) ── */}
+        <div
+          className={`flex flex-col ${isLeft ? 'items-start text-left' : 'items-end text-right'}`}
+          style={textBlockStyle}
+        >
           <p
             ref={(el) => textRefs([el, null, null, null])}
             className="font-mono text-[11px] tracking-[0.42em] text-gray-500"
@@ -208,11 +220,7 @@ function CrewScene({
           </p>
           <h3
             ref={(el) => textRefs([null, null, el, null])}
-            className={`mt-3 font-display font-black leading-[0.92] tracking-tight text-white ${
-              isFinal
-                ? 'text-[clamp(3.2rem,9vw,6.5rem)]'
-                : 'text-[clamp(2.6rem,6.5vw,5rem)]'
-            }`}
+            className="mt-3 font-display font-black leading-[0.92] tracking-tight text-white text-[clamp(2.6rem,6.5vw,5rem)]"
             style={{ opacity: 0 }}
           >
             {member.name}
@@ -230,7 +238,7 @@ function CrewScene({
 
       {/* File index marker */}
       <span className="pointer-events-none absolute bottom-7 right-6 font-mono text-[10px] tracking-[0.32em] text-gray-700">
-        {String(index + 1).padStart(2, '0')} / 08
+        {String(index + 1).padStart(2, '0')} / {String(CREW.length).padStart(2, '0')}
       </span>
     </div>
   );
@@ -239,38 +247,33 @@ function CrewScene({
 /* ─── main export ─── */
 export default function CrewDatabase() {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const bgRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textRefs = useRef<(HTMLParagraphElement | HTMLHeadingElement | null)[][]>([]);
-  const smasherOverlayRef = useRef<HTMLDivElement | null>(null);
-  const glitchRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
 
     const scenes = sceneRefs.current;
     const bgs = bgRefs.current;
     const texts = textRefs.current;
-    const smasherOverlay = smasherOverlayRef.current;
-    const glitch = glitchRef.current;
 
     // Track which characters have had their text revealed (for reset-on-backward)
     const revealedFlags = CREW.map(() => false);
-    let smasherGlitched = false;
 
-    // Sequential reveal helper — reveals FILE → Codename → Name → Quote
+    // Sequential reveal — FILE → Codename → Name → Quote, soft Power3.out
     const revealText = (memberIndex: number, progress: number) => {
       const els = texts[memberIndex];
       if (!els) return;
-      // progress 0..1 across the reveal window; stagger the four elements
       const staggers = [0, 0.25, 0.5, 0.75];
       els.forEach((el, i) => {
         if (!el) return;
         const local = (progress - staggers[i]) / 0.25;
-        const op = gsap.utils.clamp(0, 1, local);
-        el.style.opacity = String(op);
-        el.style.transform = `translateY(${(1 - op) * 14}px)`;
+        const e = easePower3Out(local);
+        el.style.opacity = String(e);
+        el.style.transform = `translateY(${(1 - e) * 30}px)`;
       });
     };
 
@@ -280,29 +283,18 @@ export default function CrewDatabase() {
       els.forEach((el) => {
         if (!el) return;
         el.style.opacity = '0';
-        el.style.transform = 'translateY(14px)';
+        el.style.transform = 'translateY(30px)';
       });
       revealedFlags[memberIndex] = false;
     };
 
-    // One-shot RGB split glitch for Adam Smasher
-    const playSmasherGlitch = () => {
-      if (smasherGlitched || !glitch) return;
-      smasherGlitched = true;
-      const tl = gsap.timeline();
-      tl.set(glitch, { opacity: 1 });
-      tl.to(glitch, { opacity: 0.85, duration: 0.04 }, 0);
-      tl.to(glitch, { opacity: 0, duration: 0.12, ease: 'power2.out' }, 0.08);
-      // total ~200ms
-    };
-
     const trigger = ScrollTrigger.create({
-      trigger: section,
+      trigger: scrollContainer,
       start: 'top top',
       end: 'bottom bottom',
-      scrub: true,
+      scrub: 0.4,
       onUpdate: (self) => {
-        const scrollProgress = self.progress; // 0 → 1 across the section
+        const scrollProgress = self.progress; // 0 → 1 across the pinned range
 
         for (let i = 0; i < CREW.length; i++) {
           const member = CREW[i];
@@ -314,53 +306,28 @@ export default function CrewDatabase() {
           const currentZ = member.z + scrollProgress * TOTAL_DEPTH;
           scene.style.transform = `translateZ(${currentZ}px)`;
 
-          // ── opacity from depth ──
-          // Far away (very negative) → 0; near camera (≈0) → 1; past camera (positive) → fades back to 0.
-          let opacity: number;
-          if (currentZ <= 0) {
-            // approaching: ramp up as we go from -8000 → 0
-            opacity = gsap.utils.clamp(0, 1, 1 - Math.abs(currentZ) / 8000);
-          } else {
-            // passed camera: fade out over the next 4000px
-            opacity = gsap.utils.clamp(0, 1, 1 - currentZ / 4000);
-          }
+          // ── opacity from depth (quick in, plateau, natural out) ──
+          const opacity = depthOpacity(currentZ);
           scene.style.opacity = String(opacity);
 
-          // ── background sync: fades in as character approaches, out when leaving ──
+          // ── background sync: supports the active portrait without overpowering ──
           if (bg) {
-            // background mirrors foreground opacity but a touch softer
             const bgOpacity = gsap.utils.clamp(0, 1, opacity * 0.55);
             bg.style.opacity = String(bgOpacity);
           }
 
-          // ── text reveal: only after currentZ ≈ -500 ──
+          // ── text reveal: only once the character is near the camera ──
           if (currentZ >= REVEAL_THRESHOLD) {
-            // map -500 → +1500 to a 0..1 reveal progress
             const revealProgress = gsap.utils.clamp(
               0,
               1,
-              (currentZ - REVEAL_THRESHOLD) / 2000,
+              (currentZ - REVEAL_THRESHOLD) / REVEAL_WINDOW,
             );
             revealText(i, revealProgress);
             revealedFlags[i] = true;
           } else if (revealedFlags[i]) {
-            // scrolled backward past the threshold → reset
             resetReveal(i);
           }
-        }
-
-        // ── Adam Smasher: red overlay + one-shot glitch when active ──
-        if (smasherOverlay) {
-          const smasherScene = scenes[SMASHER_INDEX];
-          const smasherOpacity = smasherScene
-            ? parseFloat(smasherScene.style.opacity || '0')
-            : 0;
-          smasherOverlay.style.opacity = String(smasherOpacity * 0.5);
-        }
-        // trigger glitch once when Smasher is near camera
-        const smasherZ = CREW[SMASHER_INDEX].z + scrollProgress * TOTAL_DEPTH;
-        if (!smasherGlitched && smasherZ >= -800 && smasherZ <= 800) {
-          playSmasherGlitch();
         }
       },
     });
@@ -374,8 +341,8 @@ export default function CrewDatabase() {
     <section ref={sectionRef} id="crew" className="relative bg-[#050507]">
       <SectionHeader />
 
-      {/* Parent container — ~2000vh tall to provide scroll space */}
-      <div style={{ height: '2000vh', position: 'relative' }}>
+      {/* Parent container — provides scroll space for the pinned 3D pass */}
+      <div ref={scrollContainerRef} style={{ height: '1250vh', position: 'relative' }}>
         {/* Fixed fullscreen viewport — stays pinned while scrolling this section */}
         <div
           style={{
@@ -406,7 +373,7 @@ export default function CrewDatabase() {
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 bg-[#050507]/80" />
+                <div className="absolute inset-0 bg-[#050507]/35" />
               </div>
             ))}
           </div>
@@ -415,7 +382,7 @@ export default function CrewDatabase() {
           <div
             className="absolute inset-0"
             style={{
-              perspective: '1400px',
+              perspective: '900px',
               transformStyle: 'preserve-3d',
               overflow: 'visible',
               zIndex: 1,
@@ -436,32 +403,6 @@ export default function CrewDatabase() {
               />
             ))}
           </div>
-
-          {/* Adam Smasher dark red overlay (controlled by motion engine) */}
-          <div
-            ref={smasherOverlayRef}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              zIndex: 2,
-              opacity: 0,
-              background:
-                'radial-gradient(ellipse at center, rgba(139,0,0,0.55) 0%, rgba(80,0,0,0.35) 45%, rgba(20,0,0,0.6) 100%)',
-              mixBlendMode: 'multiply',
-            }}
-          />
-
-          {/* One-shot RGB split glitch layer for Adam Smasher */}
-          <div
-            ref={glitchRef}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              zIndex: 3,
-              opacity: 0,
-              background:
-                'linear-gradient(90deg, rgba(255,0,0,0.35) 0%, rgba(0,255,255,0.35) 50%, rgba(255,0,255,0.35) 100%)',
-              mixBlendMode: 'screen',
-            }}
-          />
         </div>
       </div>
 
