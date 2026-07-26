@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { IMAGES } from '@/lib/images';
@@ -12,8 +13,6 @@ type CrewMember = {
   name: string;
   quote: string;
   img: string;
-  side: 'left' | 'right' | 'center';
-  z: number; // initial translateZ depth (px)
 };
 
 const CREW: CrewMember[] = [
@@ -23,8 +22,6 @@ const CREW: CrewMember[] = [
     name: 'Rebecca',
     quote: "I don't do second chances.",
     img: IMAGES.crew.rebecca,
-    side: 'left',
-    z: -35000,
   },
   {
     file: 'FILE 02',
@@ -32,8 +29,6 @@ const CREW: CrewMember[] = [
     name: 'Maine',
     quote: "The streets don't forget. Neither do I.",
     img: IMAGES.crew.maine,
-    side: 'right',
-    z: -30000,
   },
   {
     file: 'FILE 03',
@@ -41,8 +36,6 @@ const CREW: CrewMember[] = [
     name: 'Kiwi',
     quote: 'Every secret has a price. I collect.',
     img: IMAGES.crew.kiwi,
-    side: 'left',
-    z: -25000,
   },
   {
     file: 'FILE 04',
@@ -50,8 +43,6 @@ const CREW: CrewMember[] = [
     name: 'Dorio',
     quote: 'Loyalty is the only currency I trust.',
     img: IMAGES.crew.dorio,
-    side: 'right',
-    z: -20000,
   },
   {
     file: 'FILE 05',
@@ -59,41 +50,46 @@ const CREW: CrewMember[] = [
     name: 'Pilar',
     quote: 'Talk big. Hit harder.',
     img: IMAGES.crew.pilar,
-    side: 'left',
-    z: -15000,
   },
   {
     file: 'FILE 06',
-    codename: 'THE KID',
-    name: 'David Martinez',
-    quote: "I'm not trying to be a legend. I'm trying to stay alive.",
-    img: IMAGES.crew.david,
-    side: 'right',
-    z: -10000,
-  },
-  {
-    file: 'FILE 07',
     codename: 'THE MOON DREAMER',
     name: 'Lucy Kushinada',
     quote: "I'll take you to the moon. If you're ready to fall.",
     img: IMAGES.crew.lucy,
-    side: 'left',
-    z: -5000,
   },
   {
-    file: 'FILE 08',
-    codename: 'THE FINAL BOSS',
-    name: 'Adam Smasher',
-    quote: "Legends die. I don't.",
-    img: IMAGES.crew.smasher,
-    side: 'center',
-    z: -1000,
+    file: 'FILE 07',
+    codename: 'THE KID',
+    name: 'David Martinez',
+    quote: "I'm not trying to be a legend. I'm trying to stay alive.",
+    img: IMAGES.crew.david,
   },
 ];
 
-const TOTAL_DEPTH = 35000; // scrollProgress × this drives every character forward
-const REVEAL_THRESHOLD = -500; // text reveals once currentZ passes this
-const SMASHER_INDEX = CREW.findIndex((c) => c.name === 'Adam Smasher');
+const COUNT = CREW.length;            // 7
+const DAVID_INDEX = COUNT - 1;        // 6
+
+/* ─── depth system ─── */
+const SPACING = 1000;                 // even gap between characters (px of translateZ)
+const PERSPECTIVE = 1400;             // parent perspective
+const TRAVEL = COUNT * SPACING;       // 7000 — camera travel to bring David to camera
+
+/* ─── progress mapping ─── */
+const P_D = 0.6;                      // progress at which David reaches the camera
+const DAVID_REVEAL_SPAN = 0.28;       // dwell reveal window (completes at p ≈ 0.88)
+
+/* ─── visibility windows (in rendered-z) ─── */
+const FADE_IN = 800;                  // approach fade-in distance
+const HOLD = 120;                     // fully-visible band around camera
+const FADE_OUT = 700;                 // past-camera fade-out distance
+const REVEAL_START = 500;             // text begins revealing this far before camera
+
+/* ─── easing ─── */
+const easeInOutCubic = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /* ─── section header (static) ─── */
 function SectionHeader() {
@@ -116,67 +112,42 @@ function SectionHeader() {
   );
 }
 
-/* ─── single character scene (static 3D positioning) ─── */
+/* ─── single character scene — ONE object, portrait + text move together ─── */
 function CrewScene({
   member,
   index,
-  sceneRef,
-  textRefs,
+  onSceneRef,
+  onTextRef,
 }: {
   member: CrewMember;
   index: number;
-  sceneRef: (el: HTMLDivElement | null) => void;
-  textRefs: (els: (HTMLParagraphElement | HTMLHeadingElement | null)[]) => void;
+  onSceneRef: (i: number, el: HTMLDivElement | null) => void;
+  onTextRef: (i: number, slot: number, el: HTMLParagraphElement | HTMLHeadingElement | null) => void;
 }) {
-  const isFinal = member.side === 'center';
+  const isFinal = index === DAVID_INDEX;
 
-  const sceneStyle: React.CSSProperties = {
+  const sceneStyle: CSSProperties = {
     position: 'absolute',
     top: 0,
     left: 0,
     width: '100%',
     height: '100%',
     transformStyle: 'preserve-3d',
-    transform: `translateZ(${member.z}px)`,
+    transform: `translateZ(${-(index + 1) * SPACING}px)`,
+    opacity: 0,
     pointerEvents: 'none',
+    willChange: 'transform, opacity',
   };
 
-  // Image placement per side
-  const imgWrapStyle: React.CSSProperties = isFinal
-    ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px,54vw)' }
-    : member.side === 'left'
-    ? { left: '5vw', width: 'min(420px,38vw)' }
-    : { right: '5vw', width: 'min(420px,38vw)' };
-
-  const textAlign = isFinal
-    ? 'items-center text-center'
-    : member.side === 'left'
-    ? 'items-start text-left'
-    : 'items-end text-right';
-
-  const textOffset = isFinal
-    ? ''
-    : member.side === 'left'
-    ? 'ml-auto pr-12'
-    : 'mr-auto pl-12';
-
   return (
-    <div ref={sceneRef} style={sceneStyle}>
-      {/* ── IMAGE ── */}
-      <div
-        className="absolute flex items-center"
-        style={{
-          top: '50%',
-          transform: 'translateY(-50%)',
-          ...imgWrapStyle,
-        }}
-      >
+    <div ref={(el) => onSceneRef(index, el)} style={sceneStyle}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 md:gap-14">
+        {/* ── PORTRAIT ── */}
         <div
+          className="relative overflow-hidden"
           style={{
-            width: '100%',
+            width: 'min(300px, 58vw)',
             aspectRatio: '3 / 4',
-            position: 'relative',
-            overflow: 'hidden',
           }}
         >
           <img
@@ -187,40 +158,38 @@ function CrewScene({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/70 via-transparent to-[#050507]/20" />
         </div>
-      </div>
 
-      {/* ── TEXT ── */}
-      <div className="absolute inset-0 flex items-center px-12">
-        <div className={`flex flex-col ${textAlign} ${textOffset} max-w-sm`}>
+        {/* ── TEXT (centered, never drifts to edges) ── */}
+        <div className="flex max-w-md flex-col items-center text-center">
           <p
-            ref={(el) => textRefs([el, null, null, null])}
+            ref={(el) => onTextRef(index, 0, el)}
             className="font-mono text-[11px] tracking-[0.42em] text-gray-500"
-            style={{ opacity: 0 }}
+            style={{ opacity: 0, willChange: 'transform, opacity' }}
           >
             {member.file}
           </p>
           <p
-            ref={(el) => textRefs([null, el, null, null])}
+            ref={(el) => onTextRef(index, 1, el)}
             className="mt-4 font-mono text-xs tracking-[0.38em] uppercase text-cyber-cyan"
-            style={{ opacity: 0 }}
+            style={{ opacity: 0, willChange: 'transform, opacity' }}
           >
             {member.codename}
           </p>
           <h3
-            ref={(el) => textRefs([null, null, el, null])}
+            ref={(el) => onTextRef(index, 2, el)}
             className={`mt-3 font-display font-black leading-[0.92] tracking-tight text-white ${
               isFinal
                 ? 'text-[clamp(3.2rem,9vw,6.5rem)]'
                 : 'text-[clamp(2.6rem,6.5vw,5rem)]'
             }`}
-            style={{ opacity: 0 }}
+            style={{ opacity: 0, willChange: 'transform, opacity' }}
           >
             {member.name}
           </h3>
           <p
-            ref={(el) => textRefs([null, null, null, el])}
+            ref={(el) => onTextRef(index, 3, el)}
             className="mt-5 max-w-xs font-body text-base italic leading-relaxed text-gray-400"
-            style={{ opacity: 0 }}
+            style={{ opacity: 0, willChange: 'transform, opacity' }}
           >
             &ldquo;{member.quote}&rdquo;
           </p>
@@ -230,7 +199,7 @@ function CrewScene({
 
       {/* File index marker */}
       <span className="pointer-events-none absolute bottom-7 right-6 font-mono text-[10px] tracking-[0.32em] text-gray-700">
-        {String(index + 1).padStart(2, '0')} / 08
+        {String(index + 1).padStart(2, '0')} / {String(COUNT).padStart(2, '0')}
       </span>
     </div>
   );
@@ -242,8 +211,6 @@ export default function CrewDatabase() {
   const sceneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const bgRefs = useRef<(HTMLDivElement | null)[]>([]);
   const textRefs = useRef<(HTMLParagraphElement | HTMLHeadingElement | null)[][]>([]);
-  const smasherOverlayRef = useRef<HTMLDivElement | null>(null);
-  const glitchRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -252,48 +219,28 @@ export default function CrewDatabase() {
     const scenes = sceneRefs.current;
     const bgs = bgRefs.current;
     const texts = textRefs.current;
-    const smasherOverlay = smasherOverlayRef.current;
-    const glitch = glitchRef.current;
 
-    // Track which characters have had their text revealed (for reset-on-backward)
-    const revealedFlags = CREW.map(() => false);
-    let smasherGlitched = false;
+    // depth-driven opacity: 0 far away → 1 at camera → 0 past camera
+    const depthOpacity = (z: number): number => {
+      if (z <= -FADE_IN) return 0;
+      if (z < -HOLD) return (z + FADE_IN) / (FADE_IN - HOLD);
+      if (z <= HOLD) return 1;
+      if (z < HOLD + FADE_OUT) return 1 - (z - HOLD) / FADE_OUT;
+      return 0;
+    };
 
-    // Sequential reveal helper — reveals FILE → Codename → Name → Quote
-    const revealText = (memberIndex: number, progress: number) => {
-      const els = texts[memberIndex];
+    // progressive text reveal: FILE → CODENAME → NAME → QUOTE
+    const revealText = (i: number, f: number) => {
+      const els = texts[i];
       if (!els) return;
-      // progress 0..1 across the reveal window; stagger the four elements
-      const staggers = [0, 0.25, 0.5, 0.75];
-      els.forEach((el, i) => {
-        if (!el) return;
-        const local = (progress - staggers[i]) / 0.25;
-        const op = gsap.utils.clamp(0, 1, local);
+      const fe = easeInOutCubic(clamp01(f));
+      for (let j = 0; j < 4; j++) {
+        const el = els[j];
+        if (!el) continue;
+        const op = clamp01((fe - j * 0.25) / 0.25);
         el.style.opacity = String(op);
-        el.style.transform = `translateY(${(1 - op) * 14}px)`;
-      });
-    };
-
-    const resetReveal = (memberIndex: number) => {
-      const els = texts[memberIndex];
-      if (!els) return;
-      els.forEach((el) => {
-        if (!el) return;
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(14px)';
-      });
-      revealedFlags[memberIndex] = false;
-    };
-
-    // One-shot RGB split glitch for Adam Smasher
-    const playSmasherGlitch = () => {
-      if (smasherGlitched || !glitch) return;
-      smasherGlitched = true;
-      const tl = gsap.timeline();
-      tl.set(glitch, { opacity: 1 });
-      tl.to(glitch, { opacity: 0.85, duration: 0.04 }, 0);
-      tl.to(glitch, { opacity: 0, duration: 0.12, ease: 'power2.out' }, 0.08);
-      // total ~200ms
+        el.style.transform = `translateY(${(1 - op) * 12}px)`;
+      }
     };
 
     const trigger = ScrollTrigger.create({
@@ -302,65 +249,35 @@ export default function CrewDatabase() {
       end: 'bottom bottom',
       scrub: true,
       onUpdate: (self) => {
-        const scrollProgress = self.progress; // 0 → 1 across the section
+        const p = self.progress;
 
-        for (let i = 0; i < CREW.length; i++) {
-          const member = CREW[i];
+        // camera offset: travels 0 → TRAVEL over [0, P_D], then holds at TRAVEL for David's dwell
+        const offset = p < P_D ? (p / P_D) * TRAVEL : TRAVEL;
+
+        for (let i = 0; i < COUNT; i++) {
           const scene = scenes[i];
-          const bg = bgs[i];
           if (!scene) continue;
 
-          // ── translateZ drives everything ──
-          const currentZ = member.z + scrollProgress * TOTAL_DEPTH;
-          scene.style.transform = `translateZ(${currentZ}px)`;
+          // rendered z = initial depth + camera offset
+          const z = -(i + 1) * SPACING + offset;
+          const op = depthOpacity(z);
 
-          // ── opacity from depth ──
-          // Far away (very negative) → 0; near camera (≈0) → 1; past camera (positive) → fades back to 0.
-          let opacity: number;
-          if (currentZ <= 0) {
-            // approaching: ramp up as we go from -8000 → 0
-            opacity = gsap.utils.clamp(0, 1, 1 - Math.abs(currentZ) / 8000);
+          // only touch transform + opacity — no layout recalc
+          scene.style.transform = `translateZ(${z}px)`;
+          scene.style.opacity = String(op);
+
+          // synced background atmosphere
+          const bg = bgs[i];
+          if (bg) bg.style.opacity = String(op * 0.55);
+
+          // text reveal
+          if (i === DAVID_INDEX) {
+            // David reveals only during the dwell (after reaching camera)
+            revealText(i, (p - P_D) / DAVID_REVEAL_SPAN);
           } else {
-            // passed camera: fade out over the next 4000px
-            opacity = gsap.utils.clamp(0, 1, 1 - currentZ / 4000);
+            // others reveal as they approach the camera
+            revealText(i, (z + REVEAL_START) / REVEAL_START);
           }
-          scene.style.opacity = String(opacity);
-
-          // ── background sync: fades in as character approaches, out when leaving ──
-          if (bg) {
-            // background mirrors foreground opacity but a touch softer
-            const bgOpacity = gsap.utils.clamp(0, 1, opacity * 0.55);
-            bg.style.opacity = String(bgOpacity);
-          }
-
-          // ── text reveal: only after currentZ ≈ -500 ──
-          if (currentZ >= REVEAL_THRESHOLD) {
-            // map -500 → +1500 to a 0..1 reveal progress
-            const revealProgress = gsap.utils.clamp(
-              0,
-              1,
-              (currentZ - REVEAL_THRESHOLD) / 2000,
-            );
-            revealText(i, revealProgress);
-            revealedFlags[i] = true;
-          } else if (revealedFlags[i]) {
-            // scrolled backward past the threshold → reset
-            resetReveal(i);
-          }
-        }
-
-        // ── Adam Smasher: red overlay + one-shot glitch when active ──
-        if (smasherOverlay) {
-          const smasherScene = scenes[SMASHER_INDEX];
-          const smasherOpacity = smasherScene
-            ? parseFloat(smasherScene.style.opacity || '0')
-            : 0;
-          smasherOverlay.style.opacity = String(smasherOpacity * 0.5);
-        }
-        // trigger glitch once when Smasher is near camera
-        const smasherZ = CREW[SMASHER_INDEX].z + scrollProgress * TOTAL_DEPTH;
-        if (!smasherGlitched && smasherZ >= -800 && smasherZ <= 800) {
-          playSmasherGlitch();
         }
       },
     });
@@ -374,9 +291,9 @@ export default function CrewDatabase() {
     <section ref={sectionRef} id="crew" className="relative bg-[#050507]">
       <SectionHeader />
 
-      {/* Parent container — ~2000vh tall to provide scroll space */}
-      <div style={{ height: '2000vh', position: 'relative' }}>
-        {/* Fixed fullscreen viewport — stays pinned while scrolling this section */}
+      {/* Scroll runway */}
+      <div style={{ height: '650vh', position: 'relative' }}>
+        {/* Pinned viewport */}
         <div
           style={{
             position: 'sticky',
@@ -386,11 +303,8 @@ export default function CrewDatabase() {
             overflow: 'hidden',
           }}
         >
-          {/* Fixed fullscreen background layer — all images stacked, opacity 0 */}
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ zIndex: 0 }}
-          >
+          {/* Background atmosphere layer — synced to active character */}
+          <div className="pointer-events-none absolute inset-0" style={{ zIndex: 0 }}>
             {CREW.map((m, i) => (
               <div
                 key={m.name}
@@ -415,7 +329,7 @@ export default function CrewDatabase() {
           <div
             className="absolute inset-0"
             style={{
-              perspective: '1400px',
+              perspective: `${PERSPECTIVE}px`,
               transformStyle: 'preserve-3d',
               overflow: 'visible',
               zIndex: 1,
@@ -426,42 +340,17 @@ export default function CrewDatabase() {
                 key={m.name}
                 member={m}
                 index={i}
-                sceneRef={(el) => {
-                  sceneRefs.current[i] = el;
+                onSceneRef={(idx, el) => {
+                  sceneRefs.current[idx] = el;
                 }}
-                textRefs={(els) => {
-                  const existing = textRefs.current[i] || [null, null, null, null];
-                  textRefs.current[i] = els.map((el, j) => el ?? existing[j]);
+                onTextRef={(idx, slot, el) => {
+                  const row = textRefs.current[idx] ?? [null, null, null, null];
+                  row[slot] = el;
+                  textRefs.current[idx] = row;
                 }}
               />
             ))}
           </div>
-
-          {/* Adam Smasher dark red overlay (controlled by motion engine) */}
-          <div
-            ref={smasherOverlayRef}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              zIndex: 2,
-              opacity: 0,
-              background:
-                'radial-gradient(ellipse at center, rgba(139,0,0,0.55) 0%, rgba(80,0,0,0.35) 45%, rgba(20,0,0,0.6) 100%)',
-              mixBlendMode: 'multiply',
-            }}
-          />
-
-          {/* One-shot RGB split glitch layer for Adam Smasher */}
-          <div
-            ref={glitchRef}
-            className="pointer-events-none absolute inset-0"
-            style={{
-              zIndex: 3,
-              opacity: 0,
-              background:
-                'linear-gradient(90deg, rgba(255,0,0,0.35) 0%, rgba(0,255,255,0.35) 50%, rgba(255,0,255,0.35) 100%)',
-              mixBlendMode: 'screen',
-            }}
-          />
         </div>
       </div>
 
