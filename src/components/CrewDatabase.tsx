@@ -38,7 +38,7 @@ const DAVID_INDEX = COUNT - 1;      // 6
    ═══════════════════════════════════════════════════════════════════ */
 
 const SPACING = 1500;               // px between characters (translateZ)
-const PERSPECTIVE = 1400;           // parent perspective px
+const PERSPECTIVE = 1000;           // parent perspective px
 const CAMERA_TRAVEL = COUNT * SPACING; // 7000 — full camera travel
 
 // Visibility windows measured in rendered-z (px from camera)
