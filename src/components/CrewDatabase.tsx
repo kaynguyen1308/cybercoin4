@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { useCameraScroll } from '@/lib/cameraController';
+import gsap from 'gsap';
 import { IMAGES } from '@/lib/images';
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -125,7 +126,7 @@ function CrewScene({ member, index, refs }: { member: CrewMember; index: number;
         flexShrink: 0,
       }}
     >
-      <CyberFrame member={member} />
+      <CyberFrame member={member} index={index} />
     </div>
   );
 
@@ -275,6 +276,7 @@ export default function CrewDatabase() {
   return (
     <section ref={sectionRef} id="crew" className="relative bg-[#050507]">
       <SectionHeader />
+      <CrewFXStyles />
 
       {/* Scroll runway */}
       <div style={{ height: '650vh', position: 'relative' }}>
@@ -351,7 +353,92 @@ export default function CrewDatabase() {
    Keeps the image at exactly the same size/position; only adds the shell.
    ═══════════════════════════════════════════════════════════════════ */
 
-function CyberFrame({ member }: { member: CrewMember }) {
+/* Injected once. All effects animate only transform / opacity / box-shadow.
+   No layout properties, no heavy filters — keeps 60 FPS. */
+function CrewFXStyles() {
+  return (
+    <style>{`
+@keyframes crewFlicker {
+  0%,100% { opacity: 1; }
+  92.5% { opacity: 1; }
+  93.5% { opacity: 0.96; }
+  95% { opacity: 1; }
+  97% { opacity: 0.97; }
+  98.5% { opacity: 1; }
+}
+@keyframes crewGlassSweep {
+  0% { transform: translateX(-160%) skewX(-18deg); opacity: 0; }
+  14% { opacity: 0.5; }
+  86% { opacity: 0.35; }
+  100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
+}
+@keyframes crewScanBar {
+  0% { transform: translateY(-30px); opacity: 0; }
+  6% { opacity: 0.75; }
+  94% { opacity: 0.75; }
+  100% { transform: translateY(900px); opacity: 0; }
+}
+@keyframes crewHoloGlow {
+  0%,100% { box-shadow: 0 0 16px rgba(0,240,255,0.22), inset 0 0 16px rgba(0,240,255,0.12); }
+  50% { box-shadow: 0 0 28px rgba(0,240,255,0.42), inset 0 0 24px rgba(0,240,255,0.22); }
+}
+@keyframes crewBloom {
+  0%,100% { opacity: 0.25; }
+  50% { opacity: 0.55; }
+}
+@keyframes crewLedPulse {
+  0%,100% { opacity: 0.35; box-shadow: 0 0 3px currentColor; }
+  50% { opacity: 1; box-shadow: 0 0 7px currentColor, 0 0 13px currentColor; }
+}
+.crew-flicker { animation: crewFlicker 4.2s steps(1) infinite; }
+.crew-scanlines { position:absolute; inset:0; background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0,0,0,0.32) 2px, rgba(0,0,0,0.32) 3px); opacity:0.22; mix-blend-mode:multiply; pointer-events:none; }
+.crew-glass { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.crew-glass-bar { position:absolute; top:0; left:0; width:42%; height:100%; background:linear-gradient(115deg, transparent, rgba(255,255,255,0.16), transparent); animation: crewGlassSweep 7s ease-in-out infinite; }
+.crew-scanbar { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.crew-scanbar-line { position:absolute; left:0; right:0; height:12px; top:0; background:linear-gradient(180deg, transparent, rgba(0,240,255,0.4), transparent); box-shadow:0 0 14px rgba(0,240,255,0.45); animation: crewScanBar 5.5s linear infinite; }
+.crew-ca-red { position:absolute; inset:0; box-shadow: inset 2px 0 0 rgba(255,0,60,0.35), inset -2px 0 0 rgba(255,0,60,0.22); mix-blend-mode:screen; opacity:0.5; pointer-events:none; }
+.crew-ca-cyan { position:absolute; inset:0; box-shadow: inset -2px 0 0 rgba(0,240,255,0.35), inset 2px 0 0 rgba(0,240,255,0.22); mix-blend-mode:screen; opacity:0.5; pointer-events:none; }
+.crew-bloom { position:absolute; inset:0; background:radial-gradient(ellipse at center, rgba(0,240,255,0.12), transparent 70%); animation: crewBloom 5s ease-in-out infinite; pointer-events:none; mix-blend-mode:screen; }
+.crew-holo { position:absolute; inset:0; border:1px solid rgba(0,240,255,0.28); animation: crewHoloGlow 4s ease-in-out infinite; pointer-events:none; }
+.crew-led { animation: crewLedPulse 2s ease-in-out infinite; }
+    `}</style>
+  );
+}
+
+/* Random micro-glitch + brief RGB split on the portrait image only.
+   Fires every 6–12s, lasts 100–150ms. No React re-renders, no layout. */
+function useCyberGlitch(imgRef: React.RefObject<HTMLImageElement | null>) {
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    let killed = false;
+    let to: ReturnType<typeof setTimeout>;
+    const fire = () => {
+      if (killed) return;
+      const dur = 0.1 + Math.random() * 0.05; // 100–150ms
+      const tx = (Math.random() - 0.5) * 5;
+      const tl = gsap.timeline({ onComplete: () => gsap.set(img, { filter: 'none', x: 0 }) });
+      tl.fromTo(
+        img,
+        { filter: 'drop-shadow(3px 0 #ff003c) drop-shadow(-3px 0 #00f0ff)' },
+        { filter: 'drop-shadow(0px 0 rgba(255,0,60,0)) drop-shadow(0px 0 rgba(0,240,255,0))', duration: dur, ease: 'power2.out' },
+      );
+      tl.to(img, { x: tx, duration: dur * 0.5, ease: 'power2.out', yoyo: true, repeat: 1 }, 0);
+      to = setTimeout(fire, 6000 + Math.random() * 6000);
+    };
+    to = setTimeout(fire, 6000 + Math.random() * 6000);
+    return () => {
+      killed = true;
+      clearTimeout(to);
+      gsap.killTweensOf(img);
+    };
+  }, [imgRef]);
+}
+
+function CyberFrame({ member, index }: { member: CrewMember; index: number }) {
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  useCyberGlitch(imgRef);
+  const d = (n: number) => `${(index * 0.7 + n).toFixed(2)}s`;
   return (
     <div className="relative h-full w-full">
       {/* Thick dark metallic outer shell with bevel */}
@@ -390,25 +477,19 @@ function CyberFrame({ member }: { member: CrewMember }) {
             }}
           >
             <img
+              ref={imgRef}
               src={member.img}
               alt={member.name}
-              className="h-full w-full object-cover object-top"
+              className="crew-flicker h-full w-full object-cover object-top"
               loading="lazy"
+              style={{ animationDelay: d(1.3) }}
             />
-            {/* Color grade + glass reflection */}
+            {/* Color grade */}
             <div
               className="pointer-events-none absolute inset-0"
               style={{
                 background:
                   'linear-gradient(180deg, rgba(5,5,7,0.15) 0%, transparent 22%, transparent 62%, rgba(5,5,7,0.72) 100%)',
-              }}
-            />
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 16%, transparent 30%, transparent 100%)',
-                mixBlendMode: 'screen',
               }}
             />
             {/* Diagonal holographic sheen */}
@@ -420,14 +501,21 @@ function CyberFrame({ member }: { member: CrewMember }) {
                 mixBlendMode: 'screen',
               }}
             />
-            {/* Scanline overlay */}
-            <div
-              className="pointer-events-none absolute inset-0 opacity-25"
-              style={{
-                background:
-                  'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.35) 2px, rgba(0,0,0,0.35) 3px)',
-              }}
-            />
+            {/* CRT scanlines */}
+            <div className="crew-scanlines" />
+            {/* Glass reflection sweep */}
+            <div className="crew-glass">
+              <div className="crew-glass-bar" style={{ animationDelay: d(0.4) }} />
+            </div>
+            {/* Moving scan bar */}
+            <div className="crew-scanbar">
+              <div className="crew-scanbar-line" style={{ animationDelay: d(0.6) }} />
+            </div>
+            {/* Chromatic aberration edges */}
+            <div className="crew-ca-red" />
+            <div className="crew-ca-cyan" />
+            {/* Cyan bloom */}
+            <div className="crew-bloom" style={{ animationDelay: d(0.2) }} />
           </div>
 
           {/* Thin magenta electronic traces */}
@@ -521,39 +609,42 @@ function CyberFrame({ member }: { member: CrewMember }) {
 
           {/* Indicator LEDs */}
           <div
-            className="absolute"
+            className="crew-led absolute"
             style={{
               top: '26px',
               left: '14px',
               width: '5px',
               height: '5px',
               borderRadius: '9999px',
+              color: '#00f0ff',
               background: '#00f0ff',
-              boxShadow: '0 0 6px #00f0ff, 0 0 12px rgba(0,240,255,0.6)',
+              animationDelay: d(0.1),
             }}
           />
           <div
-            className="absolute"
+            className="crew-led absolute"
             style={{
               top: '26px',
               right: '14px',
               width: '5px',
               height: '5px',
               borderRadius: '9999px',
+              color: '#ffe600',
               background: '#ffe600',
-              boxShadow: '0 0 6px #ffe600, 0 0 12px rgba(255,230,0,0.5)',
+              animationDelay: d(0.5),
             }}
           />
           <div
-            className="absolute"
+            className="crew-led absolute"
             style={{
               bottom: '26px',
               left: '14px',
               width: '5px',
               height: '5px',
               borderRadius: '9999px',
+              color: '#ff2d2d',
               background: '#ff2d2d',
-              boxShadow: '0 0 6px #ff2d2d, 0 0 12px rgba(255,45,45,0.5)',
+              animationDelay: d(0.9),
             }}
           />
 
@@ -582,6 +673,9 @@ function CyberFrame({ member }: { member: CrewMember }) {
                 'repeating-linear-gradient(45deg, rgba(255,230,0,0.6) 0px, rgba(255,230,0,0.6) 3px, transparent 3px, transparent 6px)',
             }}
           />
+
+          {/* Holographic edge glow */}
+          <div className="crew-holo" style={{ animationDelay: d(0) }} />
         </div>
       </div>
     </div>
