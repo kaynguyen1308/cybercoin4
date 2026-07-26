@@ -117,6 +117,8 @@ function SectionHeader() {
 }
 
 /* ─── single character scene (static 3D positioning) ─── */
+/* Portrait + text move together as ONE object. Only flex-direction and the
+   horizontal anchor alternate between characters. */
 function CrewScene({
   member,
   index,
@@ -129,6 +131,7 @@ function CrewScene({
   textRefs: (els: (HTMLParagraphElement | HTMLHeadingElement | null)[]) => void;
 }) {
   const isFinal = member.side === 'center';
+  const isLeft = member.side === 'left';
 
   const sceneStyle: React.CSSProperties = {
     position: 'absolute',
@@ -141,92 +144,97 @@ function CrewScene({
     pointerEvents: 'none',
   };
 
-  // Image placement per side
-  const imgWrapStyle: React.CSSProperties = isFinal
-    ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px,54vw)' }
-    : member.side === 'left'
-    ? { left: '5vw', width: 'min(420px,38vw)' }
-    : { right: '5vw', width: 'min(420px,38vw)' };
+  const portrait = (
+    <div
+      style={{
+        width: '100%',
+        aspectRatio: '3 / 4',
+        position: 'relative',
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}
+    >
+      <img
+        src={member.img}
+        alt={member.name}
+        className="h-full w-full object-cover object-top"
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/70 via-transparent to-[#050507]/20" />
+    </div>
+  );
 
-  const textAlign = isFinal
-    ? 'items-center text-center'
-    : member.side === 'left'
-    ? 'items-start text-left'
-    : 'items-end text-right';
-
-  const textOffset = isFinal
-    ? ''
-    : member.side === 'left'
-    ? 'ml-auto pr-12'
-    : 'mr-auto pl-12';
+  const textBlock = (
+    <div
+      className={`flex flex-col max-w-sm ${
+        isFinal
+          ? 'items-center text-center'
+          : isLeft
+          ? 'items-start text-left'
+          : 'items-end text-right'
+      }`}
+    >
+      <p
+        ref={(el) => textRefs([el, null, null, null])}
+        className="font-mono text-[11px] tracking-[0.42em] text-gray-500"
+        style={{ opacity: 0 }}
+      >
+        {member.file}
+      </p>
+      <p
+        ref={(el) => textRefs([null, el, null, null])}
+        className="mt-4 font-mono text-xs tracking-[0.38em] uppercase text-cyber-cyan"
+        style={{ opacity: 0 }}
+      >
+        {member.codename}
+      </p>
+      <h3
+        ref={(el) => textRefs([null, null, el, null])}
+        className={`mt-3 font-display font-black leading-[0.92] tracking-tight text-white ${
+          isFinal
+            ? 'text-[clamp(3.2rem,9vw,6.5rem)]'
+            : 'text-[clamp(2.6rem,6.5vw,5rem)]'
+        }`}
+        style={{ opacity: 0 }}
+      >
+        {member.name}
+      </h3>
+      <p
+        ref={(el) => textRefs([null, null, null, el])}
+        className="mt-5 max-w-xs font-body text-base italic leading-relaxed text-gray-400"
+        style={{ opacity: 0 }}
+      >
+        &ldquo;{member.quote}&rdquo;
+      </p>
+      <div className="mt-6 h-px w-[52px] bg-cyber-cyan/60" />
+    </div>
+  );
 
   return (
     <div ref={sceneRef} style={sceneStyle}>
-      {/* ── IMAGE ── */}
-      <div
-        className="absolute flex items-center"
-        style={{
-          top: '50%',
-          transform: 'translateY(-50%)',
-          ...imgWrapStyle,
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            aspectRatio: '3 / 4',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <img
-            src={member.img}
-            alt={member.name}
-            className="h-full w-full object-cover object-top"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/70 via-transparent to-[#050507]/20" />
+      {isFinal ? (
+        /* Center character — portrait stacked above text, both centered */
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 md:gap-12">
+          <div style={{ width: 'min(560px,54vw)' }}>{portrait}</div>
+          {textBlock}
         </div>
-      </div>
-
-      {/* ── TEXT ── */}
-      <div className="absolute inset-0 flex items-center px-12">
-        <div className={`flex flex-col ${textAlign} ${textOffset} max-w-sm`}>
-          <p
-            ref={(el) => textRefs([el, null, null, null])}
-            className="font-mono text-[11px] tracking-[0.42em] text-gray-500"
-            style={{ opacity: 0 }}
+      ) : (
+        /* Alternating composition — ONE flex row, portrait + text together.
+           left  → row        → portrait left,  text right, anchored ~44% (shift left)
+           right → row-reverse→ text left,      portrait right, anchored ~56% (shift right) */
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <div
+            className="flex items-center gap-6 md:gap-12"
+            style={{
+              flexDirection: isLeft ? 'row' : 'row-reverse',
+              transform: `translateX(${isLeft ? '-6vw' : '6vw'})`,
+            }}
           >
-            {member.file}
-          </p>
-          <p
-            ref={(el) => textRefs([null, el, null, null])}
-            className="mt-4 font-mono text-xs tracking-[0.38em] uppercase text-cyber-cyan"
-            style={{ opacity: 0 }}
-          >
-            {member.codename}
-          </p>
-          <h3
-            ref={(el) => textRefs([null, null, el, null])}
-            className={`mt-3 font-display font-black leading-[0.92] tracking-tight text-white ${
-              isFinal
-                ? 'text-[clamp(3.2rem,9vw,6.5rem)]'
-                : 'text-[clamp(2.6rem,6.5vw,5rem)]'
-            }`}
-            style={{ opacity: 0 }}
-          >
-            {member.name}
-          </h3>
-          <p
-            ref={(el) => textRefs([null, null, null, el])}
-            className="mt-5 max-w-xs font-body text-base italic leading-relaxed text-gray-400"
-            style={{ opacity: 0 }}
-          >
-            &ldquo;{member.quote}&rdquo;
-          </p>
-          <div className="mt-6 h-px w-[52px] bg-cyber-cyan/60" />
+            <div style={{ width: 'min(420px,38vw)' }}>{portrait}</div>
+            {textBlock}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* File index marker */}
       <span className="pointer-events-none absolute bottom-7 right-6 font-mono text-[10px] tracking-[0.32em] text-gray-700">
