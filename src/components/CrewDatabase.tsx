@@ -1,10 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useCameraScroll } from '@/lib/cameraController';
 import { IMAGES } from '@/lib/images';
-
-gsap.registerPlugin(ScrollTrigger);
 
 /* ═══════════════════════════════════════════════════════════════════
    CREW DATA
@@ -224,53 +221,45 @@ function useCrewEngine(
   bgRefs: React.RefObject<(HTMLDivElement | null)[]>,
   textRefs: React.RefObject<(HTMLParagraphElement | HTMLHeadingElement | null)[][]>,
 ) {
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
+  // The camera target is driven by ScrollTrigger progress (which Lenis feeds).
+  // The controller eases toward that target with momentum — a tiny cinematic
+  // glide after the wheel stops, no overshoot, no bounce.
+  useCameraScroll(
+    sectionRef,
+    (p) => (p < P_CAMERA ? (p / P_CAMERA) * CAMERA_TRAVEL : CAMERA_TRAVEL),
+    (offset) => {
+      const scenes = sceneRefs.current;
+      const bgs = bgRefs.current;
+      const texts = textRefs.current;
+      if (!scenes || !bgs || !texts) return;
 
-    const scenes = sceneRefs.current;
-    const bgs = bgRefs.current;
-    const texts = textRefs.current;
+      for (let i = 0; i < COUNT; i++) {
+        const scene = scenes[i];
+        if (!scene) continue;
 
-    const trigger = ScrollTrigger.create({
-      trigger: section,
-      start: 'top top',
-      end: 'bottom bottom',
-      scrub: true,
-      onUpdate: (self) => {
-        const p = self.progress;
-        // Camera reaches David at P_CAMERA, then holds for David's dwell.
-        const offset = p < P_CAMERA ? (p / P_CAMERA) * CAMERA_TRAVEL : CAMERA_TRAVEL;
+        const z = -(i + 1) * SPACING + offset;
+        const op = depthOpacity(z);
 
-        for (let i = 0; i < COUNT; i++) {
-          const scene = scenes[i];
-          if (!scene) continue;
+        // Only transform + opacity — no layout recalculation.
+        scene.style.transform = `translateZ(${z}px)`;
+        scene.style.opacity = String(op);
 
-          const z = -(i + 1) * SPACING + offset;
-          const op = depthOpacity(z);
+        const bg = bgs[i];
+        if (bg) bg.style.opacity = String(op * 0.55);
 
-          // Only transform + opacity — no layout recalculation.
-          scene.style.transform = `translateZ(${z}px)`;
-          scene.style.opacity = String(op);
-
-          const bg = bgs[i];
-          if (bg) bg.style.opacity = String(op * 0.55);
-
-          if (i === DAVID_INDEX) {
-            // David reveals only during the dwell (after reaching camera).
-            revealText(texts[i] ?? [], (p - P_CAMERA) / DAVID_DWELL);
-          } else {
-            // Others reveal as they approach the camera.
-            revealText(texts[i] ?? [], (z + REVEAL_START) / REVEAL_START);
-          }
+        if (i === DAVID_INDEX) {
+          // David reveals only during the dwell (after reaching camera).
+          // Progress is reconstructed from the realized camera offset so the
+          // text reveal inherits the same physical momentum.
+          const p = offset / CAMERA_TRAVEL;
+          revealText(texts[i] ?? [], (p - P_CAMERA) / DAVID_DWELL);
+        } else {
+          // Others reveal as they approach the camera.
+          revealText(texts[i] ?? [], (z + REVEAL_START) / REVEAL_START);
         }
-      },
-    });
-
-    return () => {
-      trigger.kill();
-    };
-  }, [sectionRef, sceneRefs, bgRefs, textRefs]);
+      }
+    },
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════
