@@ -236,7 +236,7 @@ function useCrewEngine(
       trigger: section,
       start: 'top top',
       end: 'bottom bottom',
-      scrub: 0.1,
+      scrub: 2,
       onUpdate: (self) => {
         const p = self.progress;
         // Camera reaches David at P_CAMERA, then holds for David's dwell.
